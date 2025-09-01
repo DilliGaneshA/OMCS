@@ -1,16 +1,1 @@
-@@ .. @@
- import React, { useState } from 'react';
- import { Plus, Minus, ShoppingCart } from 'lucide-react';
--
--interface MenuItem {
--  id: number;
--  name: string;
--  description: string;
--  price: number;
--  category: string;
--  image: string;
--  isVeg: boolean;
--}
-+import { MenuItem } from '../types';
-
- interface MenuProps {
+{"code":"rate-limited","message":"You have hit the rate limit. Please upgrade to keep chatting.","providerLimitHit":false,"isRetryable":true}

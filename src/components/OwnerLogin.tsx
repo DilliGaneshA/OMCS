@@ -1,39 +1,8 @@
-import React, { useState } from 'react';
-import { X, Eye, EyeOff, User, Lock, Phone, Calendar, Package, TrendingUp, Users, IndianRupee, Settings, Star, Edit3, Save, Plus, Trash2 } from 'lucide-react';
-
-interface Order {
-  id: string;
-  customerName: string;
-  items: string[];
-  total: number;
-  status: string;
-  orderTime: string;
-  phone: string;
-  address: string;
-  specialRequirements?: string;
-}
-
-interface OwnerDetails {
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  businessName: string;
-  username: string;
-  password: string;
-}
-
-interface CustomerReview {
-  id: string;
-  customerName: string;
-  rating: number;
-  review: string;
-  date: string;
-  orderType: string;
-  location: string;
-  profileImage: string;
-  isApproved: boolean;
-}
+import React, { useState, useEffect } from 'react';
+import { X, Eye, EyeOff, User, Lock, Phone, Calendar, Package, TrendingUp, Users, IndianRupee, Settings, Edit3, Save, Plus, Trash2, Mail, MessageSquare, AlertCircle } from 'lucide-react';
+import { AuthService } from '../services/authService';
+import { OrderService } from '../services/orderService';
+import { BulkOrder, ContactMessage, OwnerDetails } from '../types';
 
 interface OwnerLoginProps {
   isOpen: boolean;
@@ -44,201 +13,162 @@ const OwnerLogin: React.FC<OwnerLoginProps> = ({ isOpen, onClose }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(false);
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
   });
 
-  const [ownerDetails, setOwnerDetails] = useState<OwnerDetails>({
-    name: 'Rajesh Kumar',
-    email: 'owner@mahaganapati.com',
-    phone: '+91 9787116802',
-    address: 'Nachikuppam Road, near HP Petrol Bank, Krishnagiri 635 121',
-    businessName: 'Om Sri Mahaganapati Catering Service',
-    username: 'admin',
-    password: 'admin123'
+  const [ownerDetails, setOwnerDetails] = useState<OwnerDetails | null>(null);
+  const [isEditingCredentials, setIsEditingCredentials] = useState(false);
+  const [newCredentials, setNewCredentials] = useState({
+    username: '',
+    password: '',
+    confirmPassword: ''
   });
 
-  const [isEditingOwner, setIsEditingOwner] = useState(false);
-  const [tempOwnerDetails, setTempOwnerDetails] = useState<OwnerDetails>(ownerDetails);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
-  const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([
-    {
-      id: '1',
-      customerName: 'Rajesh Kumar',
-      rating: 5,
-      review: 'Absolutely delicious food! The biryani was perfectly spiced and the paneer butter masala was creamy and flavorful. Delivery was on time and the food was still hot. Highly recommended!',
-      date: 'Dec 15, 2024',
-      orderType: 'Dinner',
-      location: 'Koramangala, Bangalore',
-      profileImage: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150',
-      isApproved: true
-    },
-    {
-      id: '2',
-      customerName: 'Priya Sharma',
-      rating: 5,
-      review: 'Om Sri Mahaganapati catered our wedding reception for 300+ guests. The food quality was exceptional and all our guests were impressed. Professional service and great coordination.',
-      date: 'Dec 12, 2024',
-      orderType: 'Wedding Catering',
-      location: 'Whitefield, Bangalore',
-      profileImage: 'https://images.pexels.com/photos/2169434/pexels-photo-2169434.jpeg?auto=compress&cs=tinysrgb&w=150',
-      isApproved: true
-    },
-    {
-      id: '3',
-      customerName: 'Amit Patel',
-      rating: 4,
-      review: 'Great South Indian breakfast! The dosas were crispy and the sambar had the perfect consistency. Only minor issue was the delivery was 10 minutes late, but the food quality made up for it.',
-      date: 'Dec 10, 2024',
-      orderType: 'Breakfast',
-      location: 'Marathahalli, Bangalore',
-      profileImage: 'https://images.pexels.com/photos/3785077/pexels-photo-3785077.jpeg?auto=compress&cs=tinysrgb&w=150',
-      isApproved: false
-    }
-  ]);
-
-  const [newReview, setNewReview] = useState<Partial<CustomerReview>>({
-    customerName: '',
-    rating: 5,
-    review: '',
-    orderType: '',
-    location: '',
-    profileImage: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150'
-  });
-
-  // Demo orders data
-  const orders: Order[] = [
-    {
-      id: 'ORD001',
-      customerName: 'Raj Kumar',
-      items: ['Chicken Biryani', 'Paneer Butter Masala', 'Naan'],
-      total: 450,
-      status: 'preparing',
-      orderTime: '2024-12-18 14:30',
-      phone: '+91 9876543210',
-      address: '123 Main Street, Bangalore',
-      specialRequirements: 'Less spicy, extra raita'
-    },
-    {
-      id: 'ORD002',
-      customerName: 'Priya Sharma',
-      items: ['South Indian Thali', 'Filter Coffee'],
-      total: 180,
-      status: 'out_for_delivery',
-      orderTime: '2024-12-18 13:45',
-      phone: '+91 9876543211',
-      address: '456 Park Avenue, Bangalore'
-    },
-    {
-      id: 'ORD003',
-      customerName: 'Amit Patel',
-      items: ['Masala Dosa', 'Sambar', 'Coconut Chutney'],
-      total: 120,
-      status: 'delivered',
-      orderTime: '2024-12-18 12:15',
-      phone: '+91 9876543212',
-      address: '789 Church Street, Bangalore'
-    }
-  ];
+  const [bulkOrders, setBulkOrders] = useState<BulkOrder[]>([]);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
 
   const dashboardStats = {
     todayOrders: 24,
     todayRevenue: 15640,
-    pendingOrders: 8,
-    completedOrders: 16
+    pendingBulkOrders: bulkOrders.filter(order => order.status === 'pending').length,
+    unreadMessages: contactMessages.filter(msg => !msg.isRead).length
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadBulkOrders();
+      loadContactMessages();
+    }
+  }, [isLoggedIn]);
+
+  const loadBulkOrders = async () => {
+    const orders = await OrderService.getBulkOrders();
+    setBulkOrders(orders);
+  };
+
+  const loadContactMessages = async () => {
+    const messages = await OrderService.getContactMessages();
+    setContactMessages(messages);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (credentials.username === ownerDetails.username && credentials.password === ownerDetails.password) {
-      setIsLoggedIn(true);
-    } else {
-      alert('Invalid credentials. Please check your username and password.');
+    setLoading(true);
+
+    try {
+      const owner = await AuthService.login(credentials.username, credentials.password);
+      if (owner) {
+        setOwnerDetails(owner);
+        setIsLoggedIn(true);
+        setCredentials({ username: '', password: '' });
+      } else {
+        alert('Invalid credentials. Please check your username and password.');
+      }
+    } catch (error) {
+      alert('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleOwnerDetailsUpdate = () => {
-    setOwnerDetails(tempOwnerDetails);
-    setIsEditingOwner(false);
-    alert('Owner details updated successfully!');
-  };
+  const handleUpdateCredentials = async () => {
+    if (!ownerDetails) return;
 
-  const handleAddReview = () => {
-    if (!newReview.customerName || !newReview.review || !newReview.orderType || !newReview.location) {
-      alert('Please fill in all required fields');
+    if (newCredentials.password !== newCredentials.confirmPassword) {
+      alert('Passwords do not match');
       return;
     }
 
-    const review: CustomerReview = {
-      id: Date.now().toString(),
-      customerName: newReview.customerName!,
-      rating: newReview.rating!,
-      review: newReview.review!,
-      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      orderType: newReview.orderType!,
-      location: newReview.location!,
-      profileImage: newReview.profileImage!,
-      isApproved: true
-    };
+    if (newCredentials.password.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
 
-    setCustomerReviews(prev => [review, ...prev]);
-    setNewReview({
-      customerName: '',
-      rating: 5,
-      review: '',
-      orderType: '',
-      location: '',
-      profileImage: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150'
-    });
-    alert('Review added successfully!');
-  };
-
-  const toggleReviewApproval = (reviewId: string) => {
-    setCustomerReviews(prev =>
-      prev.map(review =>
-        review.id === reviewId
-          ? { ...review, isApproved: !review.isApproved }
-          : review
-      )
+    const success = await AuthService.updateCredentials(
+      ownerDetails.id,
+      newCredentials.username,
+      newCredentials.password
     );
-  };
 
-  const deleteReview = (reviewId: string) => {
-    if (confirm('Are you sure you want to delete this review?')) {
-      setCustomerReviews(prev => prev.filter(review => review.id !== reviewId));
+    if (success) {
+      setOwnerDetails(prev => prev ? { ...prev, username: newCredentials.username } : null);
+      setIsEditingCredentials(false);
+      setNewCredentials({ username: '', password: '', confirmPassword: '' });
+      alert('Credentials updated successfully!');
+    } else {
+      alert('Failed to update credentials. Please try again.');
     }
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    alert(`Order ${orderId} status updated to: ${newStatus}`);
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail) {
+      alert('Please enter your email address');
+      return;
+    }
+
+    const success = await AuthService.requestPasswordReset(forgotPasswordEmail);
+    if (success) {
+      alert('Password reset instructions have been sent to your email.');
+    } else {
+      alert('Failed to send reset instructions. Please check your email address.');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetToken || !newPassword || !confirmNewPassword) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+
+    const success = await AuthService.resetPassword(resetToken, newPassword);
+    if (success) {
+      alert('Password reset successfully! You can now login with your new password.');
+      setShowForgotPassword(false);
+      setResetToken('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } else {
+      alert('Failed to reset password. Please check your reset token.');
+    }
+  };
+
+  const markMessageAsRead = async (messageId: string) => {
+    const success = await OrderService.markMessageAsRead(messageId);
+    if (success) {
+      setContactMessages(prev =>
+        prev.map(msg =>
+          msg.id === messageId ? { ...msg, isRead: true } : msg
+        )
+      );
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'placed': return 'bg-blue-100 text-blue-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'confirmed': return 'bg-green-100 text-green-800';
-      case 'preparing': return 'bg-yellow-100 text-yellow-800';
-      case 'ready': return 'bg-orange-100 text-orange-800';
-      case 'out_for_delivery': return 'bg-purple-100 text-purple-800';
-      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const renderStars = (rating: number) => {
-    return (
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map(star => (
-          <Star
-            key={star}
-            className={`w-4 h-4 ${
-              star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-            }`}
-          />
-        ))}
-      </div>
-    );
   };
 
   if (!isOpen) return null;
@@ -263,67 +193,151 @@ const OwnerLogin: React.FC<OwnerLoginProps> = ({ isOpen, onClose }) => {
           /* Login Form */
           <div className="p-8">
             <div className="max-w-md mx-auto">
-              <div className="text-center mb-8">
-                <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <User className="h-10 w-10 text-orange-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800">Welcome Back</h3>
-                <p className="text-gray-600">Sign in to access your dashboard</p>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={credentials.username}
-                      onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
-                      placeholder="Enter username"
-                      required
-                    />
+              {!showForgotPassword ? (
+                <>
+                  <div className="text-center mb-8">
+                    <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <User className="h-10 w-10 text-orange-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800">Welcome Back</h3>
+                    <p className="text-gray-600">Sign in to access your dashboard</p>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={credentials.password}
-                      onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
-                      className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
-                      placeholder="Enter password"
-                      required
-                    />
+                  <form onSubmit={handleLogin} className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={credentials.username}
+                          onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                          placeholder="Enter username"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={credentials.password}
+                          onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                          placeholder="Enter password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+
                     <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {loading ? 'Signing In...' : 'Sign In'}
+                    </button>
+                  </form>
+
+                  <div className="mt-6 text-center">
+                    <button
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Forgot Password Form */
+                <div>
+                  <div className="text-center mb-8">
+                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertCircle className="h-10 w-10 text-red-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800">Reset Password</h3>
+                    <p className="text-gray-600">Enter your email to receive reset instructions</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                        placeholder="Enter your email"
+                        required
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleForgotPassword}
+                      className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors"
+                    >
+                      Send Reset Instructions
+                    </button>
+
+                    <div className="border-t pt-6">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4">Have a Reset Token?</h4>
+                      <div className="space-y-4">
+                        <input
+                          type="text"
+                          value={resetToken}
+                          onChange={(e) => setResetToken(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                          placeholder="Enter reset token"
+                        />
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                          placeholder="Enter new password"
+                        />
+                        <input
+                          type="password"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                          placeholder="Confirm new password"
+                        />
+                        <button
+                          onClick={handleResetPassword}
+                          className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                        >
+                          Reset Password
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setShowForgotPassword(false)}
+                      className="w-full text-gray-600 hover:text-gray-800 transition-colors"
+                    >
+                      Back to Login
                     </button>
                   </div>
                 </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors"
-                >
-                  Sign In
-                </button>
-              </form>
-
-              <div className="mt-6 text-center text-sm text-gray-500">
-                <p>Default credentials: admin / admin123</p>
-              </div>
+              )}
             </div>
           </div>
         ) : (
@@ -334,8 +348,8 @@ const OwnerLogin: React.FC<OwnerLoginProps> = ({ isOpen, onClose }) => {
               <nav className="flex space-x-8 px-6">
                 {[
                   { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-                  { id: 'orders', label: 'Orders', icon: Package },
-                  { id: 'reviews', label: 'Reviews', icon: Star },
+                  { id: 'bulk-orders', label: 'Bulk Orders', icon: Package },
+                  { id: 'messages', label: 'Messages', icon: MessageSquare },
                   { id: 'settings', label: 'Settings', icon: Settings }
                 ].map(tab => {
                   const IconComponent = tab.icon;
@@ -351,6 +365,16 @@ const OwnerLogin: React.FC<OwnerLoginProps> = ({ isOpen, onClose }) => {
                     >
                       <IconComponent className="h-4 w-4" />
                       <span>{tab.label}</span>
+                      {tab.id === 'messages' && dashboardStats.unreadMessages > 0 && (
+                        <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {dashboardStats.unreadMessages}
+                        </span>
+                      )}
+                      {tab.id === 'bulk-orders' && dashboardStats.pendingBulkOrders > 0 && (
+                        <span className="bg-yellow-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {dashboardStats.pendingBulkOrders}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -386,8 +410,8 @@ const OwnerLogin: React.FC<OwnerLoginProps> = ({ isOpen, onClose }) => {
                     <div className="bg-yellow-50 rounded-xl p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-yellow-600 text-sm font-medium">Pending Orders</p>
-                          <p className="text-2xl font-bold text-yellow-800">{dashboardStats.pendingOrders}</p>
+                          <p className="text-yellow-600 text-sm font-medium">Pending Bulk Orders</p>
+                          <p className="text-2xl font-bold text-yellow-800">{dashboardStats.pendingBulkOrders}</p>
                         </div>
                         <TrendingUp className="h-8 w-8 text-yellow-600" />
                       </div>
@@ -396,386 +420,365 @@ const OwnerLogin: React.FC<OwnerLoginProps> = ({ isOpen, onClose }) => {
                     <div className="bg-purple-50 rounded-xl p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-purple-600 text-sm font-medium">Completed</p>
-                          <p className="text-2xl font-bold text-purple-800">{dashboardStats.completedOrders}</p>
+                          <p className="text-purple-600 text-sm font-medium">Unread Messages</p>
+                          <p className="text-2xl font-bold text-purple-800">{dashboardStats.unreadMessages}</p>
                         </div>
-                        <Users className="h-8 w-8 text-purple-600" />
+                        <Mail className="h-8 w-8 text-purple-600" />
                       </div>
                     </div>
                   </div>
 
-                  {/* Recent Activity */}
-                  <div className="bg-white rounded-xl border shadow-sm">
-                    <div className="p-6 border-b">
-                      <h3 className="text-xl font-semibold text-gray-800">Recent Activity</h3>
-                    </div>
-                    <div className="p-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-gray-600">New order #ORD001 received from Raj Kumar</span>
-                          <span className="text-sm text-gray-400">2 mins ago</span>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="text-gray-600">Order #ORD002 marked as delivered</span>
-                          <span className="text-sm text-gray-400">15 mins ago</span>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                          <span className="text-gray-600">New review received from Priya Sharma</span>
-                          <span className="text-sm text-gray-400">1 hour ago</span>
-                        </div>
-                      </div>
+                  {/* Welcome Message */}
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-8 text-center">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-4">
+                      Welcome back, {ownerDetails?.name}!
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      Manage your catering business efficiently with our comprehensive dashboard
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <button
+                        onClick={() => setActiveTab('bulk-orders')}
+                        className="bg-white text-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors shadow-md"
+                      >
+                        View Bulk Orders
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('messages')}
+                        className="bg-white text-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors shadow-md"
+                      >
+                        Check Messages
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('settings')}
+                        className="bg-white text-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors shadow-md"
+                      >
+                        Update Settings
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Orders Tab */}
-              {activeTab === 'orders' && (
+              {/* Bulk Orders Tab */}
+              {activeTab === 'bulk-orders' && (
                 <div className="bg-white rounded-xl border shadow-sm">
                   <div className="p-6 border-b">
-                    <h3 className="text-xl font-semibold text-gray-800">Recent Orders</h3>
+                    <h3 className="text-xl font-semibold text-gray-800">Bulk Orders</h3>
                   </div>
                   
                   <div className="divide-y divide-gray-200">
-                    {orders.map(order => (
-                      <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors">
-                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                          <div>
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h4 className="font-semibold text-gray-800">#{order.id}</h4>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                                {order.status.replace('_', ' ').toUpperCase()}
-                              </span>
+                    {bulkOrders.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                        <p>No bulk orders yet</p>
+                      </div>
+                    ) : (
+                      bulkOrders.map(order => (
+                        <div key={order.id} className="p-6 hover:bg-gray-50 transition-colors">
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div>
+                              <div className="flex items-center space-x-3 mb-2">
+                                <h4 className="font-semibold text-gray-800">{order.eventType}</h4>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                                  {order.status.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-gray-600 mb-1">{order.contactName}</p>
+                              <div className="flex items-center text-gray-500 text-sm">
+                                <Phone className="h-3 w-3 mr-1" />
+                                <span>{order.contactPhone}</span>
+                              </div>
+                              <div className="flex items-center text-gray-500 text-sm mt-1">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                <span>{order.eventDate} at {order.eventTime}</span>
+                              </div>
+                              <div className="flex items-center text-gray-500 text-sm mt-1">
+                                <Users className="h-3 w-3 mr-1" />
+                                <span>{order.guestCount} guests</span>
+                              </div>
                             </div>
-                            <p className="text-gray-600">{order.customerName}</p>
-                            <div className="flex items-center text-gray-500 text-sm mt-1">
-                              <Phone className="h-3 w-3 mr-1" />
-                              <span>{order.phone}</span>
-                            </div>
-                            <div className="flex items-center text-gray-500 text-sm mt-1">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              <span>{order.orderTime}</span>
-                            </div>
-                          </div>
 
-                          <div>
-                            <p className="font-medium text-gray-800 mb-2">Items:</p>
-                            <ul className="text-sm text-gray-600 space-y-1">
-                              {order.items.map((item, index) => (
-                                <li key={index}>• {item}</li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          <div>
-                            <p className="font-medium text-gray-800 mb-2">Delivery Address:</p>
-                            <p className="text-sm text-gray-600">{order.address}</p>
-                            {order.specialRequirements && (
-                              <>
-                                <p className="font-medium text-gray-800 mt-2 mb-1">Special Requirements:</p>
-                                <p className="text-sm text-gray-600">{order.specialRequirements}</p>
-                              </>
-                            )}
-                          </div>
-
-                          <div>
-                            <div className="text-right mb-4">
-                              <p className="text-2xl font-bold text-green-600">₹{order.total}</p>
+                            <div>
+                              <p className="font-medium text-gray-800 mb-2">Event Details:</p>
+                              <p className="text-sm text-gray-600 mb-2">
+                                <strong>Venue:</strong> {order.venue}
+                              </p>
+                              <p className="text-sm text-gray-600 mb-2">
+                                <strong>Menu:</strong> {order.menuPreference}
+                              </p>
+                              {order.contactEmail && (
+                                <p className="text-sm text-gray-600 mb-2">
+                                  <strong>Email:</strong> {order.contactEmail}
+                                </p>
+                              )}
+                              {order.specialRequirements && (
+                                <p className="text-sm text-gray-600">
+                                  <strong>Special Requirements:</strong> {order.specialRequirements}
+                                </p>
+                              )}
                             </div>
-                            
-                            <div className="space-y-2">
-                              {order.status !== 'delivered' && (
-                                <select
-                                  value={order.status}
-                                  onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+
+                            <div>
+                              <div className="text-right mb-4">
+                                <p className="text-2xl font-bold text-green-600">₹{order.estimatedCost.toLocaleString()}</p>
+                                <p className="text-sm text-gray-500">Estimated Cost</p>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <a
+                                  href={`tel:${order.contactPhone}`}
+                                  className="w-full bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-1"
                                 >
-                                  <option value="placed">Placed</option>
-                                  <option value="confirmed">Confirmed</option>
-                                  <option value="preparing">Preparing</option>
-                                  <option value="ready">Ready</option>
-                                  <option value="out_for_delivery">Out for Delivery</option>
-                                  <option value="delivered">Delivered</option>
-                                </select>
+                                  <Phone className="h-4 w-4" />
+                                  <span>Call Customer</span>
+                                </a>
+                                {order.contactEmail && (
+                                  <a
+                                    href={`mailto:${order.contactEmail}`}
+                                    className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                    <span>Send Email</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Messages Tab */}
+              {activeTab === 'messages' && (
+                <div className="bg-white rounded-xl border shadow-sm">
+                  <div className="p-6 border-b">
+                    <h3 className="text-xl font-semibold text-gray-800">Contact Messages</h3>
+                  </div>
+                  
+                  <div className="divide-y divide-gray-200">
+                    {contactMessages.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                        <p>No messages yet</p>
+                      </div>
+                    ) : (
+                      contactMessages.map(message => (
+                        <div key={message.id} className={`p-6 hover:bg-gray-50 transition-colors ${!message.isRead ? 'bg-blue-50' : ''}`}>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <h4 className="font-semibold text-gray-800">{message.name}</h4>
+                                {!message.isRead && (
+                                  <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                    New
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                <strong>Subject:</strong> {message.subject}
+                              </p>
+                              <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
+                                <span>{message.email}</span>
+                                <span>{message.phone}</span>
+                                <span>{new Date(message.createdAt).toLocaleDateString()}</span>
+                              </div>
+                              <p className="text-gray-700">{message.message}</p>
+                            </div>
+                            <div className="flex flex-col space-y-2 ml-4">
+                              {!message.isRead && (
+                                <button
+                                  onClick={() => markMessageAsRead(message.id)}
+                                  className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+                                >
+                                  Mark as Read
+                                </button>
                               )}
                               <a
-                                href={`tel:${order.phone}`}
-                                className="w-full bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-1"
+                                href={`tel:${message.phone}`}
+                                className="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 transition-colors text-center"
                               >
-                                <Phone className="h-4 w-4" />
-                                <span>Call Customer</span>
+                                Call
+                              </a>
+                              <a
+                                href={`mailto:${message.email}`}
+                                className="bg-orange-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-orange-700 transition-colors text-center"
+                              >
+                                Reply
                               </a>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Reviews Tab */}
-              {activeTab === 'reviews' && (
-                <div className="space-y-6">
-                  {/* Add New Review */}
-                  <div className="bg-white rounded-xl border shadow-sm">
-                    <div className="p-6 border-b">
-                      <h3 className="text-xl font-semibold text-gray-800">Add New Review</h3>
-                    </div>
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Customer Name *</label>
-                          <input
-                            type="text"
-                            value={newReview.customerName || ''}
-                            onChange={(e) => setNewReview(prev => ({ ...prev, customerName: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
-                            placeholder="Enter customer name"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
-                          <input
-                            type="text"
-                            value={newReview.location || ''}
-                            onChange={(e) => setNewReview(prev => ({ ...prev, location: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
-                            placeholder="Enter location"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Order Type *</label>
-                          <input
-                            type="text"
-                            value={newReview.orderType || ''}
-                            onChange={(e) => setNewReview(prev => ({ ...prev, orderType: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
-                            placeholder="e.g., Dinner, Wedding Catering"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Rating *</label>
-                          <select
-                            value={newReview.rating || 5}
-                            onChange={(e) => setNewReview(prev => ({ ...prev, rating: parseInt(e.target.value) }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
-                          >
-                            <option value={5}>5 Stars</option>
-                            <option value={4}>4 Stars</option>
-                            <option value={3}>3 Stars</option>
-                            <option value={2}>2 Stars</option>
-                            <option value={1}>1 Star</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Review *</label>
-                        <textarea
-                          value={newReview.review || ''}
-                          onChange={(e) => setNewReview(prev => ({ ...prev, review: e.target.value }))}
-                          rows={4}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
-                          placeholder="Enter customer review"
-                        />
-                      </div>
-                      <button
-                        onClick={handleAddReview}
-                        className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        <span>Add Review</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Existing Reviews */}
-                  <div className="bg-white rounded-xl border shadow-sm">
-                    <div className="p-6 border-b">
-                      <h3 className="text-xl font-semibold text-gray-800">Customer Reviews</h3>
-                    </div>
-                    <div className="divide-y divide-gray-200">
-                      {customerReviews.map(review => (
-                        <div key={review.id} className="p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-start space-x-4">
-                              <img
-                                src={review.profileImage}
-                                alt={review.customerName}
-                                className="w-12 h-12 rounded-full object-cover"
-                              />
-                              <div>
-                                <h4 className="font-semibold text-gray-800">{review.customerName}</h4>
-                                <p className="text-sm text-gray-500">{review.location}</p>
-                                <div className="flex items-center space-x-2 mt-1">
-                                  {renderStars(review.rating)}
-                                  <span className="text-sm text-gray-500">{review.date}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                review.isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {review.isApproved ? 'Approved' : 'Pending'}
-                              </span>
-                              <button
-                                onClick={() => toggleReviewApproval(review.id)}
-                                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                  review.isApproved
-                                    ? 'bg-yellow-600 text-white hover:bg-yellow-700'
-                                    : 'bg-green-600 text-white hover:bg-green-700'
-                                }`}
-                              >
-                                {review.isApproved ? 'Hide' : 'Approve'}
-                              </button>
-                              <button
-                                onClick={() => deleteReview(review.id)}
-                                className="text-red-600 hover:text-red-800 transition-colors"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="mb-2">
-                            <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
-                              {review.orderType}
-                            </span>
-                          </div>
-                          <p className="text-gray-700">{review.review}</p>
-                        </div>
-                      ))}
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
 
               {/* Settings Tab */}
               {activeTab === 'settings' && (
-                <div className="bg-white rounded-xl border shadow-sm">
-                  <div className="p-6 border-b">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-semibold text-gray-800">Owner Details</h3>
-                      <button
-                        onClick={() => {
-                          if (isEditingOwner) {
-                            setTempOwnerDetails(ownerDetails);
-                          }
-                          setIsEditingOwner(!isEditingOwner);
-                        }}
-                        className="flex items-center space-x-2 text-orange-600 hover:text-orange-700 transition-colors"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                        <span>{isEditingOwner ? 'Cancel' : 'Edit'}</span>
-                      </button>
+                <div className="space-y-6">
+                  {/* Owner Details */}
+                  <div className="bg-white rounded-xl border shadow-sm">
+                    <div className="p-6 border-b">
+                      <h3 className="text-xl font-semibold text-gray-800">Business Information</h3>
+                    </div>
+                    
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                          <input
+                            type="text"
+                            value={ownerDetails?.name || ''}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                          <input
+                            type="email"
+                            value={ownerDetails?.email || ''}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                          <input
+                            type="tel"
+                            value={ownerDetails?.phone || ''}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
+                          <input
+                            type="text"
+                            value={ownerDetails?.businessName || ''}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          />
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                          <textarea
+                            value={ownerDetails?.address || ''}
+                            disabled
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                        <input
-                          type="text"
-                          value={isEditingOwner ? tempOwnerDetails.name : ownerDetails.name}
-                          onChange={(e) => setTempOwnerDetails(prev => ({ ...prev, name: e.target.value }))}
-                          disabled={!isEditingOwner}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600 disabled:bg-gray-50"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                        <input
-                          type="email"
-                          value={isEditingOwner ? tempOwnerDetails.email : ownerDetails.email}
-                          onChange={(e) => setTempOwnerDetails(prev => ({ ...prev, email: e.target.value }))}
-                          disabled={!isEditingOwner}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600 disabled:bg-gray-50"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                        <input
-                          type="tel"
-                          value={isEditingOwner ? tempOwnerDetails.phone : ownerDetails.phone}
-                          onChange={(e) => setTempOwnerDetails(prev => ({ ...prev, phone: e.target.value }))}
-                          disabled={!isEditingOwner}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600 disabled:bg-gray-50"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
-                        <input
-                          type="text"
-                          value={isEditingOwner ? tempOwnerDetails.businessName : ownerDetails.businessName}
-                          onChange={(e) => setTempOwnerDetails(prev => ({ ...prev, businessName: e.target.value }))}
-                          disabled={!isEditingOwner}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600 disabled:bg-gray-50"
-                        />
-                      </div>
-                      
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                        <textarea
-                          value={isEditingOwner ? tempOwnerDetails.address : ownerDetails.address}
-                          onChange={(e) => setTempOwnerDetails(prev => ({ ...prev, address: e.target.value }))}
-                          disabled={!isEditingOwner}
-                          rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600 disabled:bg-gray-50"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
-                        <input
-                          type="text"
-                          value={isEditingOwner ? tempOwnerDetails.username : ownerDetails.username}
-                          onChange={(e) => setTempOwnerDetails(prev => ({ ...prev, username: e.target.value }))}
-                          disabled={!isEditingOwner}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600 disabled:bg-gray-50"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                        <input
-                          type="password"
-                          value={isEditingOwner ? tempOwnerDetails.password : ownerDetails.password}
-                          onChange={(e) => setTempOwnerDetails(prev => ({ ...prev, password: e.target.value }))}
-                          disabled={!isEditingOwner}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600 disabled:bg-gray-50"
-                        />
+
+                  {/* Login Credentials */}
+                  <div className="bg-white rounded-xl border shadow-sm">
+                    <div className="p-6 border-b">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-semibold text-gray-800">Login Credentials</h3>
+                        <button
+                          onClick={() => {
+                            if (isEditingCredentials) {
+                              setNewCredentials({ username: '', password: '', confirmPassword: '' });
+                            } else {
+                              setNewCredentials({ username: ownerDetails?.username || '', password: '', confirmPassword: '' });
+                            }
+                            setIsEditingCredentials(!isEditingCredentials);
+                          }}
+                          className="flex items-center space-x-2 text-orange-600 hover:text-orange-700 transition-colors"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                          <span>{isEditingCredentials ? 'Cancel' : 'Change Credentials'}</span>
+                        </button>
                       </div>
                     </div>
                     
-                    {isEditingOwner && (
-                      <div className="mt-6 flex space-x-4">
-                        <button
-                          onClick={handleOwnerDetailsUpdate}
-                          className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
-                        >
-                          <Save className="h-4 w-4" />
-                          <span>Save Changes</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setTempOwnerDetails(ownerDetails);
-                            setIsEditingOwner(false);
-                          }}
-                          className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
+                    <div className="p-6">
+                      {!isEditingCredentials ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                            <input
+                              type="text"
+                              value={ownerDetails?.username || ''}
+                              disabled
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input
+                              type="password"
+                              value="••••••••"
+                              disabled
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">New Username</label>
+                            <input
+                              type="text"
+                              value={newCredentials.username}
+                              onChange={(e) => setNewCredentials(prev => ({ ...prev, username: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                              placeholder="Enter new username"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                            <input
+                              type="password"
+                              value={newCredentials.password}
+                              onChange={(e) => setNewCredentials(prev => ({ ...prev, password: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                              placeholder="Enter new password (min 6 characters)"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                            <input
+                              type="password"
+                              value={newCredentials.confirmPassword}
+                              onChange={(e) => setNewCredentials(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-orange-600"
+                              placeholder="Confirm new password"
+                            />
+                          </div>
+                          <div className="flex space-x-4">
+                            <button
+                              onClick={handleUpdateCredentials}
+                              className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
+                            >
+                              <Save className="h-4 w-4" />
+                              <span>Update Credentials</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditingCredentials(false);
+                                setNewCredentials({ username: '', password: '', confirmPassword: '' });
+                              }}
+                              className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
